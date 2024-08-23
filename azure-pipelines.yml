@@ -1,0 +1,38 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: UseDocker@0
+  inputs:
+    azureSubscription: 'YourAzureSubscription'
+    azureContainerRegistry: 'YourACR'
+    command: 'login'
+
+- script: |
+    docker build -t myacr.azurecr.io/my-simple-webpage:$(Build.BuildId) .
+    docker push myacr.azurecr.io/my-simple-webpage:$(Build.BuildId)
+  displayName: 'Build and Push Docker Image'
+
+- task: Kubernetes@1
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscription: 'YourAzureSubscription'
+    azureResourceGroup: 'YourResourceGroup'
+    kubernetesCluster: 'YourAKSCluster'
+    namespace: 'default'
+    command: 'apply'
+    useConfigFile: false
+    configuration: |
+      apiVersion: v1
+      kind: Pod
+      metadata:
+        name: my-simple-webpage
+      spec:
+        containers:
+        - name: my-simple-webpage
+          image: myacr.azurecr.io/my-simple-webpage:$(Build.BuildId)
+          ports:
+          - containerPort: 80
